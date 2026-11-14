@@ -1,0 +1,25 @@
+{
+  "version": 1,
+  "files": [
+    {
+      "source": "src/submission-core.ts",
+      "target": "validation/submission-core.ts",
+      "sha256": "629aefc1d7a3016470b48793c7fd59fc707099132b82e6cad0d53f3965ef51c8"
+    },
+    {
+      "source": "shared/profile.mjs",
+      "target": "shared/profile.mjs",
+      "sha256": "9ac94c349528fe6f287cad31123eed3bf24cca8b6b13120ce6af26153cc42a2d"
+    },
+    {
+      "source": "shared/work-metadata.mjs",
+      "target": "shared/work-metadata.mjs",
+      "sha256": "00c751adf66e9d2bb78ca3487e67a35f9968bf69baf0c2d3447cdb6133e4af63"
+    },
+    {
+      "source": "shared/meme-metadata.mjs",
+      "target": "shared/meme-metadata.mjs",
+      "sha256": "5ac88dead82b28bc591df0be6f7ee3e3ea9940af486a2b393f20c7bc55740cbb"
+    }
+  ]
+}
