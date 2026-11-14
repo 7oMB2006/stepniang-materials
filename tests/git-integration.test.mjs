@@ -72,8 +72,10 @@ test('candidate symlinks are rejected without following targets', async (t) => {
   git(f.cwd, ['switch', '--detach', f.head]);
   const oid = git(f.cwd, ['rev-parse', `${f.head}:requests/${requestId}/PR.md`]).toString().trim();
   git(f.cwd, ['update-index', '--cacheinfo', `120000,${oid},requests/${requestId}/PR.md`]);
-  git(f.cwd, ['-c', 'core.hooksPath=', 'commit', '-m', 'Synthetic symlink mode']);
-  f.head = git(f.cwd, ['rev-parse', 'HEAD']).toString().trim();
+  const tree = git(f.cwd, ['write-tree']).toString().trim();
+  f.head = git(f.cwd, ['-c', 'commit.gpgsign=false', 'commit-tree', tree, '-p', f.head, '-m', 'Synthetic symlink mode']).toString().trim();
+  // Keep the fixture worktree on its original ordinary files on both Windows and Linux.
+  git(f.cwd, ['read-tree', 'HEAD']);
   git(f.cwd, ['switch', '--detach', f.base]);
   await assert.rejects(evaluatePr(f), /mode/);
 });
