@@ -1,14 +1,20 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { fileURLToPath } from 'node:url';
 import sharp from 'sharp';
-import { classifyChanges, parseDiff, validatePolicy, validateRequest, validateImage, sha256 } from '../scripts/policy.mjs';
+import { classifyChanges, parseDiff, validatePolicy, validateRequest, validateImage, sha256, loadPolicy } from '../scripts/policy.mjs';
 import { checkRepository } from '../scripts/check-repository.mjs';
 import { actor, fixture, policy, requestId, materialId } from './fixtures.mjs';
 
 const changes = (paths) => paths.map((path) => ({ status: 'A', path }));
 const validChanges = changes([`requests/${requestId}/submission.json`, `requests/${requestId}/PR.md`]);
-test('published bootstrap remains closed with empty registries and a complete protocol snapshot', async () => {
-  assert.deepEqual(await checkRepository(), { intakeOpen: false, authors: 0, materials: 0, protocolFiles: 4 });
+test('registered preparation stage remains closed with minimal registries and a complete protocol snapshot', async () => {
+  assert.deepEqual(await checkRepository(), { intakeOpen: false, authors: 1, materials: 65, protocolFiles: 4 });
+  const p = await loadPolicy(fileURLToPath(new URL('../', import.meta.url)));
+  assert.deepEqual(p.authors, [{ id: '7omb', githubUserId: 220543171 }]);
+  assert.equal(p.materials.filter((item) => !item.authorIds.length).length, 2);
+  assert.ok(p.materials.every((item) => !item.id.startsWith('official-early:')));
+  assert.ok(p.materials.every((item) => item.authorIds.length === 0 || item.authorIds.every((id) => id === '7omb')));
 });
 test('closed switch rejects new requests for owners too, before reading candidate content', async () => {
   assert.throws(() => classifyChanges(validChanges, 'OWNER', { open: false }), /closed/);
