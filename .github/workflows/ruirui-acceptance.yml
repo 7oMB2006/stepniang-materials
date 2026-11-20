@@ -1,0 +1,39 @@
+name: Request gate acceptance (isolated)
+
+on:
+  push:
+    branches: [test/ruirui-gate-runner]
+
+permissions:
+  contents: read
+
+jobs:
+  acceptance:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: a7792c6fa75a8b5418a7bc2b7c6b9126a2fc8074
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '24.15.0'
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Run the gate against real test PR metadata
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REQUEST_GATE_REPORT: ${{ runner.temp }}/request-gate-report.json
+        run: |
+          gh api repos/7oMB2006/stepniang-materials/pulls/6 > "$RUNNER_TEMP/test-pr.json"
+          jq -e '.state == "open" and .base.sha == "a7792c6fa75a8b5418a7bc2b7c6b9126a2fc8074" and .head.repo.full_name == "7oMB2006/stepniang-materials" and .head.ref == "test/ruirui-gate-fixture" and .user.id == 220543171' "$RUNNER_TEMP/test-pr.json"
+          jq '{repository:{full_name:.base.repo.full_name},number,pull_request:.}' "$RUNNER_TEMP/test-pr.json" > "$RUNNER_TEMP/test-event.json"
+          GITHUB_EVENT_NAME=pull_request_target GITHUB_EVENT_PATH="$RUNNER_TEMP/test-event.json" npm run check:pr
+      - name: Upload report
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: request-gate-report-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/request-gate-report.json
+          if-no-files-found: error
+          retention-days: 7
