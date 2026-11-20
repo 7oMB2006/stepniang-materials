@@ -3,7 +3,7 @@ name: Request gate
 on:
   pull_request_target:
     types: [opened, synchronize, reopened, ready_for_review]
-    branches: [main]
+    branches: [test/ruirui-gate-base]
 
 permissions:
   contents: read
@@ -15,6 +15,7 @@ concurrency:
 jobs:
   gate:
     name: Request gate
+    if: github.event.pull_request.user.id == 220543171 && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.head.ref == 'test/ruirui-gate-fixture'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
