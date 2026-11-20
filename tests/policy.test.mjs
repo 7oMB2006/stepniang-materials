@@ -8,8 +8,8 @@ import { actor, fixture, policy, requestId, materialId } from './fixtures.mjs';
 
 const changes = (paths) => paths.map((path) => ({ status: 'A', path }));
 const validChanges = changes([`requests/${requestId}/submission.json`, `requests/${requestId}/PR.md`]);
-test('registered preparation stage remains closed with minimal registries and a complete protocol snapshot', async () => {
-  assert.deepEqual(await checkRepository(), { intakeOpen: false, authors: 1, materials: 65, protocolFiles: 4 });
+test('open intake uses the minimal registries and a complete protocol snapshot', async () => {
+  assert.deepEqual(await checkRepository(), { intakeOpen: true, authors: 1, materials: 65, protocolFiles: 4 });
   const p = await loadPolicy(fileURLToPath(new URL('../', import.meta.url)));
   assert.deepEqual(p.authors, [{ id: '7omb', githubUserId: 220543171 }]);
   assert.equal(p.materials.filter((item) => !item.authorIds.length).length, 2);
