@@ -1,6 +1,7 @@
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import path from 'node:path';
-import { classifyChanges, loadPolicy, readJson, validateRequest } from './policy.mjs';
+import { writeFile } from 'node:fs/promises';
+import { classifyChanges, loadPolicy, readJson, validateRequest, PublicRejection, issue } from './policy.mjs';
 import { changesBetween, commit, git, GitReader } from './git-reader.mjs';
 import { checkRepository } from './check-repository.mjs';
 
@@ -15,7 +16,7 @@ export async function evaluatePr({ cwd, base, head, association, actor }) {
     return { kind: 'infrastructure', requiresHumanReview: true, candidateCodeExecuted: false };
   }
   const prefix = `requests/${classification.id}/`;
-  if ((await new GitReader(cwd, base).list(prefix)).length) throw new Error('Request directory already exists on base');
+  if ((await new GitReader(cwd, base).list(prefix)).length) throw new PublicRejection('Request directory already exists on base', [issue('INVALID_REQUEST_FILES', 'request.files')]);
   return { kind: 'request', ...await validateRequest(new GitReader(cwd, head), classification.id, policy, actor) };
 }
 
@@ -36,7 +37,21 @@ async function main() {
   git(cwd, ['-c', 'protocol.file.allow=never', 'fetch', '--no-tags', '--depth=1', 'origin',
     `+refs/pull/${event.number}/head:${ref}`]);
   if (git(cwd, ['rev-parse', ref]).toString().trim() !== head) throw new Error('PR changed while fetching; rerun the check');
-  console.log(JSON.stringify(await evaluatePr({ cwd, base, head, association: pr.author_association, actor: pr.user })));
+  const publish = async (kind, status, issues = []) => {
+    const target = process.env.REQUEST_GATE_REPORT;
+    if (!target) return;
+    const report = { version: 1, repository: event.repository.full_name, pr: event.number,
+      headSha: head, kind, status, issues };
+    await writeFile(target, JSON.stringify(report) + '\n', { flag: 'wx' });
+  };
+  try {
+    const result = await evaluatePr({ cwd, base, head, association: pr.author_association, actor: pr.user });
+    await publish(result.kind, result.kind === 'request' ? 'pass' : 'skipped');
+    console.log(JSON.stringify(result));
+  } catch (error) {
+    if (error instanceof PublicRejection) await publish('request', 'invalid', error.issues);
+    throw error;
+  }
 }
 if (process.argv[1] && pathToFileURL(path.resolve(process.argv[1])).href === import.meta.url) {
   try { await main(); }
