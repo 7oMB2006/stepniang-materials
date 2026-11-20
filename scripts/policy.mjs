@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import sharp from 'sharp';
+import { workDate } from '../shared/work-metadata.mjs';
 import { fields } from '../shared/profile.mjs';
 import { LIMITS, readManifest, workAttachments } from '../validation/submission-core.ts';
 
@@ -10,6 +11,15 @@ const AUTHOR_ID = /^[a-z0-9][a-z0-9-]{0,63}$/;
 const MATERIAL_ID = /^(?:official-early:)?[a-f0-9]{64}$/;
 const trustedAssociations = new Set(['OWNER', 'MEMBER', 'COLLABORATOR']);
 export const sha256 = (bytes) => createHash('sha256').update(bytes).digest('hex');
+
+export const issue = (code, field, workIndex = null) => ({ workIndex, field, code });
+
+export class PublicRejection extends Error {
+  constructor(message, issues) {
+    super(message);
+    this.issues = issues;
+  }
+}
 
 export async function readJson(file, maxBytes = LIMITS.jsonBytes) {
   const bytes = await readFile(file);
@@ -54,17 +64,17 @@ export function classifyChanges(changes, association, config) {
     if (!trustedAssociations.has(association)) throw new Error('Infrastructure changes need a maintainer-led PR');
     return { kind: 'infrastructure' };
   }
-  if (requestChanges.length !== changes.length) throw new Error('Do not mix requests and infrastructure changes');
+  if (requestChanges.length !== changes.length) throw new PublicRejection('Do not mix requests and infrastructure changes', [issue('MIXED_REQUEST_CHANGES', 'request.files')]);
   if (!config.open) throw new Error('投稿暂未开放：request intake is closed');
-  if (changes.length > LIMITS.files * 2 + 3) throw new Error('Too many request files');
+  if (changes.length > LIMITS.files * 2 + 3) throw new PublicRejection('Too many request files', [issue('INVALID_REQUEST_FILES', 'request.files')]);
   const requestIds = new Set();
   const paths = new Set();
   for (const change of changes) {
     const match = REQUEST_PATH.exec(change.path);
-    if (change.status !== 'A' || !match || paths.has(change.path)) throw new Error('Only new, safe request files are allowed');
+    if (change.status !== 'A' || !match || paths.has(change.path)) throw new PublicRejection('Only new, safe request files are allowed', [issue('INVALID_REQUEST_FILES', 'request.files')]);
     requestIds.add(match[1]); paths.add(change.path);
   }
-  if (requestIds.size !== 1) throw new Error('One request directory per PR');
+  if (requestIds.size !== 1) throw new PublicRejection('One request directory per PR', [issue('INVALID_REQUEST_FILES', 'request.files')]);
   return { kind: 'request', id: [...requestIds][0] };
 }
 
@@ -116,21 +126,52 @@ export async function validateRequest(reader, id, policy, actor) {
     byPath.set(entry.path, entry);
   }
   const manifestEntry = byPath.get(`${prefix}submission.json`);
-  if (!manifestEntry || !byPath.has(`${prefix}PR.md`)) throw new Error('Missing submission.json or PR.md');
-  const manifest = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(await reader.read(manifestEntry)));
-  const draft = readManifest(manifest, policy.authors.map((author) => author.id), policy.materials);
+  if (!manifestEntry || !byPath.has(`${prefix}PR.md`)) {
+    throw new PublicRejection('Missing submission.json or PR.md', [issue('MISSING_REQUEST_FILES', 'request.files')]);
+  }
+  const manifestBytes = await reader.read(manifestEntry);
+  let manifest;
+  try {
+    manifest = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(manifestBytes));
+  } catch {
+    throw new PublicRejection('Invalid submission.json encoding or JSON', [issue('INVALID_MANIFEST', 'submission')]);
+  }
+  let draft;
+  try {
+    draft = readManifest(manifest, policy.authors.map((author) => author.id), policy.materials);
+  } catch (error) {
+    // Report supplementary field locations after the canonical validator rejects.
+    // Keep the synchronized protocol snapshot and gate decision unchanged.
+    const works = manifest?.public?.works;
+    const dates = [];
+    if (Array.isArray(works) && works.length <= LIMITS.files) {
+      for (const [index, work] of works.entries()) {
+        try { workDate(work?.createdDate); }
+        catch { dates.push(issue('INVALID_CREATION_DATE', 'public.works[].createdDate', index + 1)); }
+      }
+    }
+    throw new PublicRejection(error.message, dates.length ? dates : [issue('INVALID_MANIFEST', 'submission')]);
+  }
   if (!actor || typeof actor.login !== 'string' || !Number.isSafeInteger(actor.id) || actor.id < 1
-    || actor.type !== 'User' || draft.githubLogin.toLowerCase() !== actor.login.toLowerCase()) throw new Error('GitHub claim does not match the human PR author');
+    || actor.type !== 'User' || draft.githubLogin.toLowerCase() !== actor.login.toLowerCase()) throw new PublicRejection('GitHub claim does not match the human PR author', [issue('AUTHOR_CLAIM_MISMATCH', 'review.githubLoginClaim')]);
   if (draft.mode === 'existing' && policy.authors.find((author) => author.id === draft.authorId)?.githubUserId !== actor.id) {
-    throw new Error('Existing author requires a maintainer-verified numeric GitHub binding');
+    throw new PublicRejection('Existing author requires a maintainer-verified numeric GitHub binding', [issue('AUTHOR_BINDING_REQUIRED', 'public.author.id')]);
   }
   const attachments = attachmentsFor(draft);
   const expected = new Set([`${prefix}submission.json`, `${prefix}PR.md`, ...attachments.map((a) => prefix + a.path)]);
-  if (expected.size !== entries.length || entries.some((entry) => !expected.has(entry.path))) throw new Error('Unexpected or unreferenced files');
+  if (expected.size !== entries.length || entries.some((entry) => !expected.has(entry.path))) throw new PublicRejection('Unexpected or unreferenced files', [issue('INVALID_REQUEST_FILES', 'request.files')]);
   for (const attachment of attachments) {
     const entry = byPath.get(prefix + attachment.path);
-    if (!entry || entry.size !== attachment.bytes) throw new Error('Missing attachment or declared size mismatch');
-    await validateImage(await reader.read(entry), attachment);
+    const workIndex = draft.works.findIndex((work) => workAttachments(work).includes(attachment));
+    const field = workIndex < 0 ? 'public.author.avatar'
+      : draft.works[workIndex].attachment === attachment ? 'public.works[].attachment' : 'public.works[].meme.attachment';
+    const diagnostic = issue('ATTACHMENT_MISMATCH', field, workIndex < 0 ? null : workIndex + 1);
+    if (!entry || entry.size !== attachment.bytes) {
+      throw new PublicRejection('Missing attachment or declared size mismatch', [diagnostic]);
+    }
+    const bytes = await reader.read(entry);
+    try { await validateImage(bytes, attachment); }
+    catch (error) { throw new PublicRejection(error.message, [diagnostic]); }
   }
   return { requestKind: draft.requestKind, works: draft.works.length, targets: draft.withdrawalIds.length,
     attachments: attachments.length, bindingStatus: 'unverified', requiresHumanReview: true };
