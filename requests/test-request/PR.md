@@ -1,0 +1,1 @@
+Synthetic test fixture. Not a real request.
