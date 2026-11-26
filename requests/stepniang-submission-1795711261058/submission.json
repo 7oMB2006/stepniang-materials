@@ -1,0 +1,128 @@
+{
+  "format": "stepniang-submission",
+  "version": 4,
+  "exportedAt": "2026-11-26T16:41:01.038Z",
+  "public": {
+    "author": {
+      "mode": "existing",
+      "id": "7omb",
+      "updateProfile": false,
+      "profile": null,
+      "baseline": {
+        "name": "7oMB",
+        "tagline": "",
+        "bio": "踽踽而行，步履不停。",
+        "email": "3311482378@qq.com",
+        "links": [
+          {
+            "label": "GitHub",
+            "url": "https://github.com/7oMB2006"
+          },
+          {
+            "label": "B站",
+            "url": "https://space.bilibili.com/506159361?spm_id_from=333.1007.0.0"
+          },
+          {
+            "label": "小红书",
+            "url": "https://www.xiaohongshu.com/user/profile/6aa9111b0000000013002800"
+          },
+          {
+            "label": "Twitter / X",
+            "url": "https://x.com/7oMB_Ju"
+          },
+          {
+            "label": "柒拾兆字节",
+            "url": "https://7omb2006.github.io/"
+          },
+          {
+            "label": "StepCode桌面端社区版",
+            "url": "https://calm-falcon-0dc2.page.stepcloud.com/"
+          }
+        ]
+      },
+      "changes": [],
+      "avatarAction": "keep",
+      "avatar": null
+    },
+    "works": [
+      {
+        "attachment": {
+          "id": "76e5fbf6-17e2-464f-94a2-79150a0fb6be",
+          "path": "files/76e5fbf6-17e2-464f-94a2-79150a0fb6be.png",
+          "name": "e76ec3c1-3ab6-498a-abd8-00baf7718d2e.png",
+          "bytes": 1395700,
+          "width": 1024,
+          "height": 1536,
+          "sha256": "29f22eb08a0c1b78056102eb083b78b04df81fc78bfa4e6f3b853b5c735d250b"
+        },
+        "title": "阶跃终端",
+        "category": "设定图",
+        "tags": [
+          "阶跃终端"
+        ],
+        "license": "CC BY-NC-SA 4.0",
+        "source": "",
+        "credits": [
+          "@self"
+        ],
+        "createdDate": "2026-09-20",
+        "archive": {
+          "characterId": "community",
+          "outfitIds": [
+            "tiangong",
+            "origin"
+          ],
+          "referenceKind": "detail",
+          "detailLabel": "阶跃终端"
+        }
+      },
+      {
+        "attachment": {
+          "id": "2013bb34-9a8a-48e8-b128-136491d551cb",
+          "path": "files/2013bb34-9a8a-48e8-b128-136491d551cb.png",
+          "name": "阶跃娘的耳机.png",
+          "bytes": 2055748,
+          "width": 1254,
+          "height": 1254,
+          "sha256": "a1bbd6e7777f0c35e3ff7bc5f809136c9083e7962a0726abae5b0011595598b9"
+        },
+        "title": "阶跃娘的耳机",
+        "category": "设定图",
+        "tags": [
+          "配饰"
+        ],
+        "license": "CC BY-NC-SA 4.0",
+        "source": "",
+        "credits": [
+          "@self"
+        ],
+        "createdDate": "2026-10-07",
+        "archive": {
+          "characterId": "community",
+          "outfitIds": [
+            "tiangong",
+            "origin"
+          ],
+          "referenceKind": "detail",
+          "detailLabel": "耳机"
+        }
+      }
+    ]
+  },
+  "review": {
+    "githubLoginClaim": "7oMB2006",
+    "bindingStatus": "unverified",
+    "works": [
+      {
+        "id": "76e5fbf6-17e2-464f-94a2-79150a0fb6be",
+        "creationMethod": "AI 辅助",
+        "note": ""
+      },
+      {
+        "id": "2013bb34-9a8a-48e8-b128-136491d551cb",
+        "creationMethod": "AI 生成",
+        "note": ""
+      }
+    ]
+  }
+}
