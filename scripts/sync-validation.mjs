@@ -9,6 +9,7 @@ const sources = [
   ['shared/profile.mjs', 'shared/profile.mjs'],
   ['shared/work-metadata.mjs', 'shared/work-metadata.mjs'],
   ['shared/meme-metadata.mjs', 'shared/meme-metadata.mjs'],
+  ['shared/character-library.mjs', 'shared/character-library.mjs'],
 ];
 const args = process.argv.slice(2);
 if (args.length !== 2 || args[0] !== '--from') throw new Error('Usage: node scripts/sync-validation.mjs --from <site-root>');
@@ -24,4 +25,4 @@ for (const [source, target] of sources) {
   files.push({ source, target, sha256: createHash('sha256').update(bytes).digest('hex') });
 }
 await writeFile(path.join(root, 'validation/snapshot.json'), `${JSON.stringify({ version: 1, files }, null, 2)}\n`);
-console.log('Copied only the four allowlisted protocol modules; review changes before committing.');
+console.log(`Copied only the ${sources.length} allowlisted protocol modules; review changes before committing.`);

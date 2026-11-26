@@ -9,7 +9,7 @@ import { git, GitReader } from '../scripts/git-reader.mjs';
 import { actor, fixture, policy, requestId } from './fixtures.mjs';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
-async function gitFixture(t, open) {
+async function gitFixture(t, open, archive) {
   const cwd = await mkdtemp(path.join(os.tmpdir(), 'stepniang-intake-'));
   t.after(() => {
     const target = path.resolve(cwd);
@@ -32,7 +32,7 @@ async function gitFixture(t, open) {
   git(cwd, ['add', '--', '.']);
   git(cwd, ['-c', 'core.hooksPath=', 'commit', '-m', 'Synthetic base']);
   const base = git(cwd, ['rev-parse', 'HEAD']).toString().trim();
-  const f = await fixture('profile-update');
+  const f = archive ? await fixture('submission', { archive }) : await fixture('profile-update');
   for (const [name, bytes] of f.files) {
     const target = path.join(cwd, name);
     await mkdir(path.dirname(target), { recursive: true });
@@ -52,6 +52,15 @@ test('real Git blob reading validates a PR without checking out head files', asy
   assert.equal(result.works, 0);
   assert.equal(git(f.cwd, ['rev-parse', 'HEAD']).toString().trim(), f.base);
   await assert.rejects(readFile(path.join(f.cwd, 'requests', requestId, 'submission.json')), /ENOENT/);
+});
+test('trusted base gate accepts a v4 outfit proposal from request blobs', async (t) => {
+  const f = await gitFixture(t, true, { characterId: 'community', outfitIds: ['tiangong'],
+    referenceKind: 'detail', detailLabel: '随身终端' });
+  const result = await evaluatePr(f);
+  assert.equal(result.requestKind, 'submission');
+  assert.equal(result.works, 1);
+  assert.equal(result.requiresHumanReview, true);
+  assert.equal(git(f.cwd, ['rev-parse', 'HEAD']).toString().trim(), f.base);
 });
 test('a PR cannot open intake by changing its own config alongside request data', async (t) => {
   const f = await gitFixture(t, false);

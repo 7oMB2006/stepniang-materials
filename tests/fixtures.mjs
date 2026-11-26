@@ -20,7 +20,7 @@ export class MemoryReader {
   async read(entry) { this.reads++; return this.files.get(entry.path); }
 }
 
-export async function fixture(kind = 'submission', { existing = false, meme = false, avatar = false } = {}) {
+export async function fixture(kind = 'submission', { existing = false, meme = false, avatar = false, archive } = {}) {
   const draft = emptyDraft();
   const png = await sharp({ create: { width: 3, height: 2, channels: 3, background: '#256890' } }).png().toBuffer();
   const attachment = {
@@ -36,6 +36,7 @@ export async function fixture(kind = 'submission', { existing = false, meme = fa
   if (kind === 'submission') {
     draft.works = [{ attachment, title: 'Synthetic fixture', category: '插画', tags: '', license: DEFAULT_LICENSE,
       source: '', creationMethod: '混合', note: 'Synthetic fixture, not a real submission', credits: ['@self'], createdDate: '', meme: null }];
+    if (archive) draft.works[0].archive = archive;
     blobs.set(attachment.path, png);
     if (meme) {
       const source = await sharp({ create: { width: 2, height: 3, channels: 3, background: '#975373' } }).png().toBuffer();
