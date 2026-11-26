@@ -12,6 +12,7 @@ export async function checkRepository(directory = root) {
     ['shared/profile.mjs', 'shared/profile.mjs'],
     ['shared/work-metadata.mjs', 'shared/work-metadata.mjs'],
     ['shared/meme-metadata.mjs', 'shared/meme-metadata.mjs'],
+    ['shared/character-library.mjs', 'shared/character-library.mjs'],
   ]);
   if (snapshot.version !== 1 || !Array.isArray(snapshot.files) || snapshot.files.length !== expected.size) throw new Error('Invalid protocol snapshot');
   for (const file of snapshot.files) {

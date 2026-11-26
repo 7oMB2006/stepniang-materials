@@ -4,7 +4,7 @@
     {
       "source": "src/submission-core.ts",
       "target": "validation/submission-core.ts",
-      "sha256": "629aefc1d7a3016470b48793c7fd59fc707099132b82e6cad0d53f3965ef51c8"
+      "sha256": "0971af5355762570ed99acf30865d9ffcbc3ba0d135bf0b06f22135a4d880a63"
     },
     {
       "source": "shared/profile.mjs",
@@ -20,6 +20,11 @@
       "source": "shared/meme-metadata.mjs",
       "target": "shared/meme-metadata.mjs",
       "sha256": "5ac88dead82b28bc591df0be6f7ee3e3ea9940af486a2b393f20c7bc55740cbb"
+    },
+    {
+      "source": "shared/character-library.mjs",
+      "target": "shared/character-library.mjs",
+      "sha256": "d4fc99440a1ea4cd9cfc6614fca9cc4405352e473deb565b7b7c84fa0e352e1b"
     }
   ]
 }

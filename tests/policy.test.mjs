@@ -9,7 +9,7 @@ import { actor, fixture, policy, requestId, materialId } from './fixtures.mjs';
 const changes = (paths) => paths.map((path) => ({ status: 'A', path }));
 const validChanges = changes([`requests/${requestId}/submission.json`, `requests/${requestId}/PR.md`]);
 test('open intake uses the minimal registries and a complete protocol snapshot', async () => {
-  assert.deepEqual(await checkRepository(), { intakeOpen: true, authors: 1, materials: 65, protocolFiles: 4 });
+  assert.deepEqual(await checkRepository(), { intakeOpen: true, authors: 1, materials: 65, protocolFiles: 5 });
   const p = await loadPolicy(fileURLToPath(new URL('../', import.meta.url)));
   assert.deepEqual(p.authors, [{ id: '7omb', githubUserId: 220543171 }]);
   assert.equal(p.materials.filter((item) => !item.authorIds.length).length, 2);
@@ -71,6 +71,26 @@ test('v3 profile-only and avatar-only changes need no new work', async () => {
     assert.equal(manifest.version, 3);
     assert.equal(result.works, 0);
     assert.equal(result.attachments, avatar ? 1 : 0);
+  }
+});
+test('v4 gate validates archive proposals without approving or counting them as attachments', async () => {
+  const archive = { characterId: 'community', outfitIds: ['tiangong'], referenceKind: 'detail', detailLabel: '随身终端' };
+  const { reader, manifest, rewrite } = await fixture('submission', { archive, meme: true });
+  assert.equal(manifest.version, 4);
+  const result = await validateRequest(reader, requestId, policy(), actor);
+  assert.equal(result.works, 1);
+  assert.equal(result.attachments, 2);
+  assert.equal(result.requiresHumanReview, true);
+  for (const invalid of [
+    { ...archive, characterId: 'official-early', outfitIds: [] },
+    { ...archive, characterId: 'duck-bike' },
+    { ...archive, outfitIds: ['tiangong', 'tiangong'] },
+    { ...archive, referenceKind: 'fullbody' },
+    { ...archive, approved: true },
+  ]) {
+    manifest.public.works[0].archive = invalid;
+    rewrite();
+    await assert.rejects(validateRequest(reader, requestId, policy(), actor));
   }
 });
 test('v3 collaborator withdrawal is only an application and never mutates registry or deletes files', async () => {

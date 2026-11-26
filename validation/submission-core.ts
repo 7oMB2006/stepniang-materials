@@ -1,6 +1,7 @@
 import { fields, prepareEmail, prepareLinks, stringField } from '../shared/profile.mjs';
 import { workDate } from '../shared/work-metadata.mjs';
 import { prepareMemeCaption } from '../shared/meme-metadata.mjs';
+import { characterMetadata, type CharacterMetadata } from '../shared/character-library.mjs';
 
 export const DEFAULT_LICENSE = 'CC BY-NC-SA 4.0';
 export const LIMITS = { files: 24, fileBytes: 20 * 1024 * 1024, totalBytes: 100 * 1024 * 1024, jsonBytes: 1024 * 1024 };
@@ -16,7 +17,8 @@ export const REQUEST_LABELS: Record<RequestKind, string> = {
 export type Profile = { name: string; tagline: string; bio: string; email: string; links: { label: string; url: string }[] };
 export type Attachment = { id: string; path: string; name: string; bytes: number; width: number; height: number; sha256: string };
 export type MemeAddon = { attachment: Attachment | null; title: string; description: string; credit: string; url: string };
-export type Work = { attachment: Attachment; title: string; category: string; tags: string; license: string; source: string; creationMethod: string; note: string; credits: string[]; createdDate: string; meme: MemeAddon | null };
+export type ArchiveProposal = Pick<CharacterMetadata, 'characterId' | 'outfitIds' | 'referenceKind' | 'detailLabel'>;
+export type Work = { attachment: Attachment; title: string; category: string; tags: string; license: string; source: string; creationMethod: string; note: string; credits: string[]; createdDate: string; meme: MemeAddon | null; archive?: ArchiveProposal };
 export type Draft = {
   requestKind: RequestKind; withdrawalIds: string[]; withdrawalReason: string;
   mode: 'existing' | 'new'; authorId: string; githubLogin: string; updateAuthor: boolean;
@@ -35,6 +37,19 @@ function normalizeMeme(value: unknown) {
   if (!meme.attachment) throw new Error('请添加梗来源图片，或关闭梗图附加信息');
   return { attachment: { ...readAttachment(meme.attachment) },
     ...prepareMemeCaption({ title: meme.title, description: meme.description, credit: meme.credit, url: meme.url }) };
+}
+function normalizeArchive(value: unknown): ArchiveProposal {
+  const archive = object(value, ['characterId', 'outfitIds', 'referenceKind', 'detailLabel'], '设定归属');
+  const { characterId, outfitIds, referenceKind, detailLabel } = archive as ArchiveProposal;
+  if (typeof characterId !== 'string' || !characterId || characterId === 'official-early') {
+    throw new Error('请选择社区档案；早期官方档案须独立收录');
+  }
+  if (!Array.isArray(outfitIds) || typeof referenceKind !== 'string' || typeof detailLabel !== 'string') {
+    throw new Error('设定归属字段格式无效');
+  }
+  const normalized = characterMetadata({ characterId, outfitIds, referenceKind, detailLabel });
+  return { characterId: normalized.characterId, outfitIds: normalized.outfitIds,
+    referenceKind: normalized.referenceKind, detailLabel: normalized.detailLabel };
 }
 export const emptyDraft = (): Draft => ({
   requestKind: 'submission', withdrawalIds: [], withdrawalReason: '',
@@ -150,6 +165,7 @@ export function validateDraft(draft: Draft, authorIds: string[], materials: read
     }, id);
     test(1, () => { bounded(work.title, '作品标题', 80, true); }, id);
     test(1, () => { if (!(WORK_CATEGORIES as readonly string[]).includes(work.category)) throw new Error('请选择作品分类'); }, id);
+    test(1, () => { if (work.archive !== undefined) normalizeArchive(work.archive); }, id);
     test(1, () => { parseTags(work.tags); }, id);
     test(1, () => { workDate(work.createdDate); }, id);
     test(1, () => { bounded(work.license, '使用许可', 200, true); }, id);
@@ -171,8 +187,10 @@ export function makeManifest(draft: Draft, authorIds: string[], materials: reado
   if (issues.length) throw new Error(issues[0].message);
   const editing = draft.mode === 'new' || draft.updateAuthor;
   const profile = normalizeProfile(editing ? draft.profile : draft.baseline!);
+  const version = draft.requestKind !== 'submission' ? 3 : draft.works.some((work) => work.archive) ? 4
+    : draft.works.some((work) => work.meme) ? 2 : 1;
   return {
-    format: 'stepniang-submission', version: draft.requestKind !== 'submission' ? 3 : draft.works.some((work) => work.meme) ? 2 : 1,
+    format: 'stepniang-submission', version,
     ...(draft.requestKind !== 'submission' ? { requestKind: draft.requestKind } : {}),
     exportedAt: new Date().toISOString(),
     public: {
@@ -189,6 +207,7 @@ export function makeManifest(draft: Draft, authorIds: string[], materials: reado
         license: work.license.trim(), source: sourceUrl(work.source), credits: [...work.credits],
         createdDate: workDate(work.createdDate),
         ...(work.meme ? { meme: normalizeMeme(work.meme) } : {}),
+        ...(work.archive ? { archive: normalizeArchive(work.archive) } : {}),
       })),
     },
     review: {
@@ -237,8 +256,9 @@ export function readAttachment(value: unknown): Attachment {
 }
 export function readManifest(value: unknown, authorIds: string[], materials: readonly RequestMaterial[] = []): Draft {
   const m = object(value, ['format', 'version', 'requestKind', 'exportedAt', 'public', 'review'], '申请包');
-  if (m.format !== 'stepniang-submission' || ![1, 2, 3].includes(m.version as number) || !Number.isFinite(Date.parse(string(m.exportedAt, '导出时间', 40)))) throw new Error('不支持的申请包版本');
+  if (m.format !== 'stepniang-submission' || ![1, 2, 3, 4].includes(m.version as number) || !Number.isFinite(Date.parse(string(m.exportedAt, '导出时间', 40)))) throw new Error('不支持的申请包版本');
   const modern = m.version === 3;
+  const supportsArchive = m.version === 4;
   if (modern ? !['profile-update', 'withdrawal'].includes(m.requestKind as string) : Object.hasOwn(m, 'requestKind')) throw new Error('申请类型与版本不一致');
   const requestKind = modern ? m.requestKind as RequestKind : 'submission';
   const pub = object(m.public, ['author', 'works', ...(modern ? ['withdrawalIds'] : [])], '公开资料');
@@ -260,7 +280,7 @@ export function readManifest(value: unknown, authorIds: string[], materials: rea
   const usedFiles = new Set<string>();
   const works = array(pub.works, LIMITS.files).map((entry): Work => {
     const w = object(entry, ['attachment', 'title', 'category', 'tags', 'license', 'source', 'credits', 'createdDate', 'characterVersion',
-      ...(m.version === 2 ? ['meme'] : [])], '作品');
+      ...(m.version === 2 || supportsArchive ? ['meme'] : []), ...(supportsArchive ? ['archive'] : [])], '作品');
     // Accept the retired field from earlier v1 exports without carrying it forward.
     if (w.characterVersion != null) bounded(string(w.characterVersion, '旧包版本标签', 80), '旧包版本标签', 40);
     const attachment = readAttachment(w.attachment);
@@ -280,9 +300,11 @@ export function readManifest(value: unknown, authorIds: string[], materials: rea
       createdDate: workDate(w.createdDate) ?? '',
       meme: meme ? { attachment: meme.attachment, title: meme.title ?? '', description: meme.description ?? '',
         credit: meme.credit ?? '', url: meme.url ?? '' } : null,
+      ...(Object.hasOwn(w, 'archive') ? { archive: normalizeArchive(w.archive) } : {}),
       credits: array(w.credits, 30).map((credit) => string(credit, '署名', 64)),
       creationMethod: string(matching[0].creationMethod, '创作方式', 30), note: string(matching[0].note, '审核备注', 4000) };
   });
+  if (supportsArchive && !works.some((work) => work.archive)) throw new Error('v4 投稿包至少需要一件作品填写设定归属');
   if (usedReview.size !== reviewWorks.length) throw new Error('投稿包含无对应作品的审核资料');
   const avatar = a.avatar === null ? null : readAttachment(a.avatar);
   if (avatar && usedFiles.has(avatar.path)) throw new Error('头像不能引用作品附件');

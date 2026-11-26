@@ -11,7 +11,7 @@
 - `.github/`：PR 模板、维护者署名规则和自动检查。
 - `config/intake.json`：入口开关，当前为 `open: true`。
 - `registry/`：经维护者确认的作者 ID、GitHub 数字账号 ID 及作品署名索引；不包含邮箱、简介、链接、头像或原图。
-- `validation/` 与 `shared/`：当前表单 v1/v2/v3 的校验协议快照，不是已定稿的站点源码。
+- `validation/` 与 `shared/`：当前表单 v1/v2/v3/v4 的校验协议快照，不是已定稿的站点源码。
 - `scripts/` 与 `tests/`：只读校验工具和合成数据测试，不执行作者提交的脚本。
 
 ## 申请流程
@@ -59,7 +59,7 @@ npm run check
 
 ### 同步协议快照
 
-`validation/snapshot.json` 记录四个白名单模块的 SHA-256，文本统一为 LF，
+`validation/snapshot.json` 记录五个白名单模块的 SHA-256，文本统一为 LF，
 避免 Windows 与 Linux 换行造成校验漂移。不会自动读取作者、作品或站点配置。
 维护者在确认站内协议改动后手动运行，再逐项审查差异并测试：
 
